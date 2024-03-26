@@ -1,0 +1,50 @@
+---
+- name: Setup Certificate Authority on Control Node
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install OpenSSL
+      apt:
+        name: openssl
+        state: present
+
+    - name: Create CA directory
+      file:
+        path: /etc/ssl/ca
+        state: directory
+        mode: '0700'
+
+    - name: Generate CA key
+      openssl_privatekey:
+        path: /etc/ssl/ca/ca.key
+        passphrase: StrongPassphraseHere
+        cipher: auto
+
+    - name: Generate CA certificate
+      openssl_certificate:
+        path: /etc/ssl/ca/ca.crt
+        privatekey_path: /etc/ssl/ca/ca.key
+        privatekey_passphrase: StrongPassphraseHere
+        state: present
+        provider: selfsigned
+
+- name: Fetch CA certificate from Control Node
+  hosts: all
+  become: yes
+  tasks:
+    - name: Wait for certificate file to be generated
+      wait_for:
+        path: /etc/ssl/ca/ca.crt
+        state: present
+        timeout: 60
+      delegate_to: 192.168.56.110
+
+- name: Copy CA certificate from server1 to workstation
+  hosts: all
+  become: yes
+  tasks:
+    - name: Copy CA certificate to workstation
+      fetch:
+        src: /etc/ssl/ca/ca.crt
+        dest: /home/daniela/HOA_9.1/certificates
+        flat: yes
